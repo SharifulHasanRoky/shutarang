@@ -3,8 +3,17 @@ import { db } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
-  const messages = await db.inboxMessage.findMany({ orderBy: { createdAt: 'desc' }, take: 100 })
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const profileId = searchParams.get('profileId')
+  if (!profileId) {
+    return NextResponse.json({ ok: false, error: 'profileId required' }, { status: 400 })
+  }
+  const messages = await db.inboxMessage.findMany({
+    where: { profileId },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+  })
   return NextResponse.json({ messages })
 }
 

@@ -15,7 +15,7 @@ import { Sparkles, Send, Calendar, Image as ImageIcon, Hash, X, Loader2, Check }
 import { toast } from 'sonner'
 
 export function Composer() {
-  const { composerOpen, closeComposer, composerPrefill } = useApp()
+  const { composerOpen, closeComposer, composerPrefill, activeProfileId } = useApp()
   const [caption, setCaption] = useState('')
   const [selected, setSelected] = useState<string[]>(['instagram', 'tiktok', 'twitter', 'facebook'])
   const [hashtags, setHashtags] = useState('')
@@ -27,12 +27,16 @@ export function Composer() {
   useEffect(() => {
     if (composerOpen) {
       setCaption(composerPrefill || '')
-      fetch('/api/social-accounts')
-        .then((r) => r.json())
-        .then((d) => setAccounts(d.accounts ?? []))
-        .catch(() => {})
+      if (activeProfileId) {
+        fetch(`/api/social-accounts?profileId=${activeProfileId}`)
+          .then((r) => r.json())
+          .then((d) => setAccounts(d.accounts ?? []))
+          .catch(() => {})
+      } else {
+        setAccounts([])
+      }
     }
-  }, [composerOpen, composerPrefill])
+  }, [composerOpen, composerPrefill, activeProfileId])
 
   const connectedPlatforms = useMemo(
     () => new Set(accounts.map((a) => a.platform)),
@@ -96,12 +100,17 @@ export function Composer() {
       toast.error('Select at least one platform')
       return
     }
+    if (!activeProfileId) {
+      toast.error('No active profile selected')
+      return
+    }
     setPublishing(true)
     try {
       const r = await fetch('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          profileId: activeProfileId,
           caption,
           platforms: selected,
           hashtags: hashtags.split(/\s+/).filter(Boolean),

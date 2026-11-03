@@ -1,4 +1,4 @@
-// Prisma schema for FreeMetric — a 100% free social media management tool
+// Prisma schema for Shutarang — free social media manager with profiles + API + MCP
 
 generator client {
   provider = "prisma-client-js"
@@ -9,8 +9,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// A profile = a workspace/brand/client. Each profile can hold unlimited accounts
+// per platform (e.g. 3 Instagram accounts, 2 YouTube channels under one profile).
+model Profile {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  avatarUrl   String?
+  color       String   @default("emerald") // emerald | violet | sunset | ocean | rose | mono
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  accounts       SocialAccount[]
+  posts          ScheduledPost[]
+  apiKeys        ApiKey[]
+  smartLinks     SmartLink[]
+  analytics      AnalyticsSnapshot[]
+  inboxMessages  InboxMessage[]
+}
+
 model SocialAccount {
   id          String   @id @default(cuid())
+  profileId   String
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
   platform    String   // instagram, tiktok, youtube, threads, twitter, twitch, gbp, bluesky, facebook, pinterest, linkedin
   handle      String
   displayName String
@@ -20,12 +42,17 @@ model SocialAccount {
   following   Int      @default(0)
   posts       Int      @default(0)
   verified    Boolean  @default(false)
+  label       String?  // e.g. "Main", "Backup", "Client X account"
   connectedAt DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@unique([profileId, platform, handle])
 }
 
 model ScheduledPost {
   id          String   @id @default(cuid())
+  profileId   String
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
   caption     String
   mediaUrls   String   @default("[]") // JSON array
   platforms   String   @default("[]") // JSON array of platform ids
@@ -39,6 +66,8 @@ model ScheduledPost {
 
 model AnalyticsSnapshot {
   id             String   @id @default(cuid())
+  profileId      String
+  profile        Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
   platform       String
   date           String   // YYYY-MM-DD
   followers      Int      @default(0)
@@ -55,6 +84,8 @@ model AnalyticsSnapshot {
 
 model SmartLink {
   id          String   @id @default(cuid())
+  profileId   String
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
   title       String
   slug        String   @unique
   bio         String
@@ -69,6 +100,8 @@ model SmartLink {
 
 model InboxMessage {
   id          String   @id @default(cuid())
+  profileId   String
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
   platform    String
   senderName  String
   senderHandle String
@@ -83,10 +116,19 @@ model InboxMessage {
   repliedAt   DateTime?
 }
 
-model AiTemplate {
-  id          String   @id @default(cuid())
-  name        String
-  prompt      String
-  category    String   @default("general") // general | promotion | story | caption | hashtag
-  createdAt   DateTime @default(now())
+// API keys for external AI tools / apps to access Shutarang via REST API or MCP.
+model ApiKey {
+  id         String   @id @default(cuid())
+  name       String
+  // The full key is shown ONCE at creation (sk_<32 hex chars>). We only persist:
+  //   - prefix (first 10 chars, e.g. "sk_shutar_")  -> for display / lookup
+  //   - keyHash (sha256 of full key)                -> for verification
+  prefix     String
+  keyHash    String   @unique
+  profileId  String?  // null = access to all profiles; otherwise scoped to one profile
+  profile    Profile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  scopes     String   @default("read,write,ai") // comma-separated
+  lastUsedAt DateTime?
+  createdAt  DateTime @default(now())
+  revokedAt  DateTime?
 }

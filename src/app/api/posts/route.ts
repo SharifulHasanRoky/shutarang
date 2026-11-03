@@ -3,8 +3,17 @@ import { db } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
-  const posts = await db.scheduledPost.findMany({ orderBy: { createdAt: 'desc' }, take: 200 })
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const profileId = searchParams.get('profileId')
+  if (!profileId) {
+    return NextResponse.json({ ok: false, error: 'profileId required' }, { status: 400 })
+  }
+  const posts = await db.scheduledPost.findMany({
+    where: { profileId },
+    orderBy: { createdAt: 'desc' },
+    take: 200,
+  })
   return NextResponse.json({
     posts: posts.map((p) => ({
       ...p,
@@ -17,12 +26,13 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { caption, platforms, scheduledAt, hashtags, mediaUrls, status } = body
-  if (!caption || !platforms?.length) {
-    return NextResponse.json({ ok: false, error: 'caption and platforms required' }, { status: 400 })
+  const { profileId, caption, platforms, scheduledAt, hashtags, mediaUrls, status } = body
+  if (!profileId || !caption || !platforms?.length) {
+    return NextResponse.json({ ok: false, error: 'profileId, caption and platforms required' }, { status: 400 })
   }
   const post = await db.scheduledPost.create({
     data: {
+      profileId,
       caption,
       platforms: JSON.stringify(platforms),
       mediaUrls: JSON.stringify(mediaUrls ?? []),

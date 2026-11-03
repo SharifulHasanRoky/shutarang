@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { PlatformIcon } from '@/components/platform-icon'
 import { PLATFORMS } from '@/lib/platforms'
+import { useApp } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import {
   Plus,
@@ -19,6 +20,8 @@ import {
   Zap,
   Shield,
   Infinity as InfinityIcon,
+  Users,
+  AlertCircle,
 } from 'lucide-react'
 import {
   Dialog,
@@ -37,27 +40,31 @@ interface Account {
   url: string
   followers: number
   verified: boolean
+  label: string | null
   connectedAt: string
 }
 
 export function ConnectionsView() {
+  const { activeProfileId, profiles, setView } = useApp()
   const [accounts, setAccounts] = useState<Account[]>([])
   const [open, setOpen] = useState(false)
   const [selectedPlatform, setSelectedPlatform] = useState<string>('instagram')
   const [handle, setHandle] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [url, setUrl] = useState('')
+  const [label, setLabel] = useState('')
   const [saving, setSaving] = useState(false)
 
   const load = () => {
-    fetch('/api/social-accounts')
+    if (!activeProfileId) return
+    fetch(`/api/social-accounts?profileId=${activeProfileId}`)
       .then((r) => r.json())
       .then((d) => setAccounts(d.accounts ?? []))
       .catch(console.error)
   }
-  useEffect(load, [])
+  useEffect(load, [activeProfileId])
 
-  const connectedPlatforms = new Set(accounts.map((a) => a.platform))
+  const activeProfile = profiles.find((p) => p.id === activeProfileId)
 
   const handleConnect = async () => {
     if (!handle.trim()) {
@@ -70,10 +77,12 @@ export function ConnectionsView() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          profileId: activeProfileId,
           platform: selectedPlatform,
           handle: handle.trim().replace(/^@/, ''),
           displayName: displayName.trim() || handle.trim(),
           url: url.trim() || undefined,
+          label: label.trim() || null,
         }),
       })
       const d = await r.json()
@@ -83,6 +92,7 @@ export function ConnectionsView() {
         setHandle('')
         setDisplayName('')
         setUrl('')
+        setLabel('')
         load()
       } else {
         toast.error(d.error || 'Failed to connect')
@@ -105,6 +115,11 @@ export function ConnectionsView() {
   }
 
   const openConnect = (platform: string) => {
+    if (!activeProfileId) {
+      toast.error('Create a profile first')
+      setView('profiles')
+      return
+    }
     setSelectedPlatform(platform)
     const p = PLATFORMS.find((x) => x.id === platform)
     if (p) setUrl(p.urlBase)
@@ -112,13 +127,32 @@ export function ConnectionsView() {
   }
 
   const totalFollowers = accounts.reduce((s, a) => s + (a.followers ?? 0), 0)
+  const connectedPlatforms = new Set(accounts.map((a) => a.platform))
 
   return (
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Connections</h1>
-        <p className="text-sm text-muted-foreground">Connect all your social media — just paste your profile links.</p>
+        <p className="text-sm text-muted-foreground">
+          Connect all your social media — paste links. Multiple accounts per platform supported.
+        </p>
       </div>
+
+      {/* No active profile warning */}
+      {!activeProfileId && (
+        <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+          <CardContent className="p-4 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">No active profile selected</p>
+              <p className="text-xs text-amber-700 dark:text-amber-400">Create a profile first to connect social accounts.</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => setView('profiles')}>
+              Create profile
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
@@ -126,16 +160,17 @@ export function ConnectionsView() {
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
               <Plug className="w-4 h-4 text-emerald-500" />
-              <span className="text-xs text-muted-foreground">Connected</span>
+              <span className="text-xs text-muted-foreground">Accounts</span>
             </div>
-            <div className="text-xl font-bold">{accounts.length} / {PLATFORMS.length}</div>
+            <div className="text-xl font-bold">{accounts.length}</div>
+            <div className="text-[10px] text-muted-foreground">across {connectedPlatforms.size} platforms</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
-              <InfinityIcon className="w-4 h-4 text-violet-500" />
-              <span className="text-xs text-muted-foreground">Total Reach</span>
+              <Users className="w-4 h-4 text-violet-500" />
+              <span className="text-xs text-muted-foreground">Total reach</span>
             </div>
             <div className="text-xl font-bold">{totalFollowers.toLocaleString()}</div>
           </CardContent>
@@ -143,7 +178,7 @@ export function ConnectionsView() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
-              <Shield className="w-4 h-4 text-amber-500" />
+              <InfinityIcon className="w-4 h-4 text-amber-500" />
               <span className="text-xs text-muted-foreground">Plan</span>
             </div>
             <div className="text-xl font-bold gradient-text">Free Unlimited</div>
@@ -151,12 +186,13 @@ export function ConnectionsView() {
         </Card>
       </div>
 
-      {/* All platforms grid */}
+      {/* Platforms grid */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">All Supported Platforms</CardTitle>
           <CardDescription className="text-xs">
-            Metricool-style support. Add as many accounts as you want — no limits.
+            Add <strong>multiple</strong> accounts per platform under the active profile
+            {activeProfile && <> — <span className="font-medium text-foreground">{activeProfile.name}</span></>}.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -184,6 +220,7 @@ export function ConnectionsView() {
                   </div>
                   <h3 className="text-sm font-semibold">{p.name}</h3>
                   <p className="text-[11px] text-muted-foreground mb-3">Connect unlimited {p.name} accounts</p>
+
                   {connected.length > 0 && (
                     <div className="space-y-1.5 mb-3">
                       {connected.map((c) => (
@@ -192,22 +229,28 @@ export function ConnectionsView() {
                             href={c.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 hover:underline truncate"
+                            className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 hover:underline truncate min-w-0"
                           >
-                            @{c.handle}
+                            <span className="truncate">@{c.handle}</span>
                             <ExternalLink className="w-2.5 h-2.5 shrink-0" />
                           </a>
                           <button
                             onClick={() => handleDisconnect(c.id)}
-                            className="text-rose-500 hover:text-rose-700"
+                            className="text-rose-500 hover:text-rose-700 shrink-0"
                             title="Disconnect"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
                         </div>
                       ))}
+                      {connected.length > 1 && (
+                        <div className="text-[10px] text-muted-foreground/70 pt-0.5">
+                          + {connected.length} accounts on this platform
+                        </div>
+                      )}
                     </div>
                   )}
+
                   <Button
                     variant={connected.length > 0 ? 'outline' : 'default'}
                     size="sm"
@@ -232,8 +275,8 @@ export function ConnectionsView() {
             <span className="text-lg font-bold gradient-text">100% Free Forever</span>
           </div>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            No plans. No trials. No credit card. Connect unlimited accounts across all 11 platforms and post as much as you want.
-            Shutarang is your social media manager with no strings attached.
+            No plans. No trials. No credit card. Connect unlimited accounts across all 11 platforms
+            and post as much as you want.
           </p>
         </CardContent>
       </Card>
@@ -256,10 +299,8 @@ export function ConnectionsView() {
                 onChange={(e) => setHandle(e.target.value)}
                 placeholder="yourbrand"
                 className="mt-1"
+                autoFocus
               />
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Just paste your handle or profile URL — no API keys, no OAuth needed.
-              </p>
             </div>
             <div>
               <Label htmlFor="displayName" className="text-xs uppercase tracking-wider text-muted-foreground">Display Name (optional)</Label>
@@ -270,6 +311,19 @@ export function ConnectionsView() {
                 placeholder="Your Brand"
                 className="mt-1"
               />
+            </div>
+            <div>
+              <Label htmlFor="label" className="text-xs uppercase tracking-wider text-muted-foreground">Label (optional)</Label>
+              <Input
+                id="label"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder="e.g. Main, Backup, EU market, Client X"
+                className="mt-1"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Helps you tell multiple accounts on the same platform apart.
+              </p>
             </div>
             <div>
               <Label htmlFor="url" className="text-xs uppercase tracking-wider text-muted-foreground">Profile URL</Label>

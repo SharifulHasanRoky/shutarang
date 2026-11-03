@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { PlatformIcon } from '@/components/platform-icon'
 import { cn } from '@/lib/utils'
 import { Mail, MessageCircle, AtSign, Sparkles, Send, CheckCheck, Loader2, Inbox as InboxIcon } from 'lucide-react'
+import { useApp } from '@/lib/store'
 import { toast } from 'sonner'
 
 interface Message {
@@ -32,6 +33,7 @@ const typeIcon: Record<string, any> = {
 }
 
 export function InboxView() {
+  const { activeProfileId } = useApp()
   const [messages, setMessages] = useState<Message[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [reply, setReply] = useState('')
@@ -40,7 +42,8 @@ export function InboxView() {
   const [filter, setFilter] = useState<'all' | 'unread' | 'replied'>('all')
 
   const load = () => {
-    fetch('/api/inbox')
+    if (!activeProfileId) return
+    fetch(`/api/inbox?profileId=${activeProfileId}`)
       .then((r) => r.json())
       .then((d) => {
         setMessages(d.messages ?? [])
@@ -48,7 +51,7 @@ export function InboxView() {
       })
       .catch(console.error)
   }
-  useEffect(load, [])
+  useEffect(load, [activeProfileId])
 
   const filtered = messages.filter((m) =>
     filter === 'unread' ? !m.isRead : filter === 'replied' ? m.isReplied : true,

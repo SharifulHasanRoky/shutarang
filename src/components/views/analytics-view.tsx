@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { PlatformIcon } from '@/components/platform-icon'
 import { PLATFORMS, PLATFORM_MAP } from '@/lib/platforms'
 import { cn } from '@/lib/utils'
+import { useApp } from '@/lib/store'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Area,
@@ -50,22 +51,24 @@ interface Account {
 const PLATFORM_COLORS: Record<string, string> = PLATFORMS.reduce((acc, p) => ({ ...acc, [p.id]: p.color }), {})
 
 export function AnalyticsView() {
+  const { activeProfileId } = useApp()
   const [snapshots, setSnapshots] = useState<Snapshot[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
   const [selected, setSelected] = useState('all')
   const [range, setRange] = useState('30')
 
   useEffect(() => {
+    if (!activeProfileId) return
     Promise.all([
-      fetch('/api/analytics?platform=all&days=30').then((r) => r.json()),
-      fetch('/api/social-accounts').then((r) => r.json()),
+      fetch(`/api/analytics?profileId=${activeProfileId}&platform=all&days=30`).then((r) => r.json()),
+      fetch(`/api/social-accounts?profileId=${activeProfileId}`).then((r) => r.json()),
     ])
       .then(([s, a]) => {
         setSnapshots(s.snapshots ?? [])
         setAccounts(a.accounts ?? [])
       })
       .catch(console.error)
-  }, [])
+  }, [activeProfileId])
 
   const filtered = useMemo(
     () => (selected === 'all' ? snapshots : snapshots.filter((s) => s.platform === selected)),

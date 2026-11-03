@@ -3,8 +3,16 @@ import { db } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
-  const links = await db.smartLink.findMany({ orderBy: { createdAt: 'desc' } })
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const profileId = searchParams.get('profileId')
+  if (!profileId) {
+    return NextResponse.json({ ok: false, error: 'profileId required' }, { status: 400 })
+  }
+  const links = await db.smartLink.findMany({
+    where: { profileId },
+    orderBy: { createdAt: 'desc' },
+  })
   return NextResponse.json({
     links: links.map((l) => ({ ...l, links: JSON.parse(l.links) })),
   })
@@ -12,12 +20,15 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { title, slug, bio, theme, links, avatarUrl } = body
-  if (!title || !slug) return NextResponse.json({ ok: false, error: 'title and slug required' }, { status: 400 })
+  const { profileId, title, slug, bio, theme, links, avatarUrl } = body
+  if (!profileId || !title || !slug) {
+    return NextResponse.json({ ok: false, error: 'profileId, title and slug required' }, { status: 400 })
+  }
   const existing = await db.smartLink.findUnique({ where: { slug } })
   if (existing) return NextResponse.json({ ok: false, error: 'slug taken' }, { status: 400 })
   const link = await db.smartLink.create({
     data: {
+      profileId,
       title,
       slug,
       bio: bio ?? '',

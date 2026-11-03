@@ -1,0 +1,15 @@
+{
+  "name": "shutarang-mcp-server",
+  "version": "1.0.0",
+  "description": "Standalone MCP stdio server for Shutarang — connects Claude Desktop, Cursor, Windsurf to Shutarang's social media management API.",
+  "type": "module",
+  "bin": {
+    "shutarang-mcp": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "keywords": ["mcp", "model-context-protocol", "shutarang", "social-media", "ai", "claude", "cursor"],
+  "license": "MIT"
+}

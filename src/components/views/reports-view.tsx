@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { PlatformIcon } from '@/components/platform-icon'
 import { PLATFORM_MAP } from '@/lib/platforms'
+import { useApp, profileColor } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import {
   FileText,
@@ -53,21 +54,25 @@ interface Account {
 }
 
 export function ReportsView() {
+  const { activeProfileId, profiles } = useApp()
   const [snapshots, setSnapshots] = useState<Snapshot[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
   const [period, setPeriod] = useState('Last 30 days')
 
   useEffect(() => {
+    if (!activeProfileId) return
     Promise.all([
-      fetch('/api/analytics?days=30').then((r) => r.json()),
-      fetch('/api/social-accounts').then((r) => r.json()),
+      fetch(`/api/analytics?profileId=${activeProfileId}&days=30`).then((r) => r.json()),
+      fetch(`/api/social-accounts?profileId=${activeProfileId}`).then((r) => r.json()),
     ])
       .then(([s, a]) => {
         setSnapshots(s.snapshots ?? [])
         setAccounts(a.accounts ?? [])
       })
       .catch(console.error)
-  }, [])
+  }, [activeProfileId])
+
+  const activeProfile = profiles.find((p) => p.id === activeProfileId)
 
   const totals = useMemo(() => {
     const latest = snapshots.filter((s) => s.date === snapshots.at(-1)?.date)

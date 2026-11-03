@@ -38,7 +38,7 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
 export function PlannerView() {
-  const { openComposer } = useApp()
+  const { openComposer, activeProfileId } = useApp()
   const [posts, setPosts] = useState<Post[]>([])
   const [tab, setTab] = useState('calendar')
   const [month, setMonth] = useState(() => {
@@ -47,12 +47,13 @@ export function PlannerView() {
   })
 
   const load = () => {
-    fetch('/api/posts')
+    if (!activeProfileId) return
+    fetch(`/api/posts?profileId=${activeProfileId}`)
       .then((r) => r.json())
       .then((d) => setPosts(d.posts ?? []))
       .catch(console.error)
   }
-  useEffect(load, [])
+  useEffect(load, [activeProfileId])
 
   const calendarDays = useMemo(() => {
     const firstDay = new Date(month)

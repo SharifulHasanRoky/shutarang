@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { useApp } from '@/lib/store'
 import {
   Link2,
   Plus,
@@ -69,6 +70,7 @@ const ICONS: Record<string, any> = {
 }
 
 export function SmartLinksView() {
+  const { activeProfileId } = useApp()
   const [links, setLinks] = useState<SmartLink[]>([])
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<SmartLink | null>(null)
@@ -83,12 +85,13 @@ export function SmartLinksView() {
   const [linkItems, setLinkItems] = useState<LinkItem[]>([{ label: '', url: '', icon: 'globe' }])
 
   const load = () => {
-    fetch('/api/smartlinks')
+    if (!activeProfileId) return
+    fetch(`/api/smartlinks?profileId=${activeProfileId}`)
       .then((r) => r.json())
       .then((d) => setLinks(d.links ?? []))
       .catch(console.error)
   }
-  useEffect(load, [])
+  useEffect(load, [activeProfileId])
 
   const resetForm = () => {
     setTitle('')
@@ -127,6 +130,7 @@ export function SmartLinksView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: editing?.id,
+          profileId: activeProfileId,
           title,
           slug,
           bio,

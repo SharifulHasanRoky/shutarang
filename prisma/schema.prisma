@@ -1,0 +1,92 @@
+// Prisma schema for FreeMetric — a 100% free social media management tool
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model SocialAccount {
+  id          String   @id @default(cuid())
+  platform    String   // instagram, tiktok, youtube, threads, twitter, twitch, gbp, bluesky, facebook, pinterest, linkedin
+  handle      String
+  displayName String
+  url         String
+  avatarUrl   String?
+  followers   Int      @default(0)
+  following   Int      @default(0)
+  posts       Int      @default(0)
+  verified    Boolean  @default(false)
+  connectedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ScheduledPost {
+  id          String   @id @default(cuid())
+  caption     String
+  mediaUrls   String   @default("[]") // JSON array
+  platforms   String   @default("[]") // JSON array of platform ids
+  hashtags    String   @default("[]") // JSON array
+  status      String   @default("draft") // draft | scheduled | published | failed
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AnalyticsSnapshot {
+  id             String   @id @default(cuid())
+  platform       String
+  date           String   // YYYY-MM-DD
+  followers      Int      @default(0)
+  followersGrowth Int     @default(0)
+  reach          Int      @default(0)
+  impressions    Int      @default(0)
+  engagementRate Float    @default(0)
+  likes          Int      @default(0)
+  comments       Int      @default(0)
+  shares         Int      @default(0)
+  clicks         Int      @default(0)
+  createdAt      DateTime @default(now())
+}
+
+model SmartLink {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  bio         String
+  avatarUrl   String?
+  theme       String   @default("violet") // violet | emerald | sunset | ocean | mono
+  links       String   @default("[]") // JSON array of {label, url, icon}
+  visits      Int      @default(0)
+  clicks      Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model InboxMessage {
+  id          String   @id @default(cuid())
+  platform    String
+  senderName  String
+  senderHandle String
+  senderAvatar String?
+  message     String
+  type        String   @default("comment") // comment | dm | mention
+  postCaption String?
+  isRead      Boolean  @default(false)
+  isReplied   Boolean  @default(false)
+  reply       String?
+  createdAt   DateTime @default(now())
+  repliedAt   DateTime?
+}
+
+model AiTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  prompt      String
+  category    String   @default("general") // general | promotion | story | caption | hashtag
+  createdAt   DateTime @default(now())
+}
